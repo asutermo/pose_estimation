@@ -2,13 +2,13 @@ import os
 import tempfile
 
 import cv2
-import httpx
+import httpx  # type: ignore
 import numpy as np
-import supervision as sv
-import torch
+import supervision as sv  # type: ignore
+import torch  # type: ignore
 import tqdm  # type: ignore
 from PIL import Image
-from transformers import (
+from transformers import (  # type: ignore
     AutoProcessor,
     RTDetrForObjectDetection,
     VitPoseForPoseEstimation,
@@ -37,22 +37,20 @@ class PoseEstimationClient:
         )
 
     @torch.inference_mode()
-    def process_image(
-        self, image_or_image_path: str | Image.Image
-    ) -> tuple[Image.Image, list[dict]]:
+    def process_image(self, image: str | Image.Image) -> tuple[Image.Image, list[dict]]:
         if isinstance(image, str):
-            if os.path.exists(image_or_image_path):
-                image = Image.open(image_or_image_path)
+            if os.path.exists(image):
+                pil_image = Image.open(image)
             else:
-                image = Image.open(httpx.get(image_or_image_path))
+                pil_image = Image.open(httpx.get(image))
         elif isinstance(image, Image.Image):
-            image = image_or_image_path
+            pil_image = image
         else:
             raise ValueError(
                 f"Invalid input type: {type(image)}. Image must be a path/url or PIL Image"
             )
 
-        inputs = self.person_image_processor(images=image, return_tensors="pt").to(
+        inputs = self.person_image_processor(images=pil_image, return_tensors="pt").to(
             self.device
         )
 
@@ -63,7 +61,7 @@ class PoseEstimationClient:
         # Post process. This is only single image at the moment
         results = self.person_image_processor.post_process_object_detection(
             outputs,
-            target_sizes=torch.tensor([(image.height, image.width)]),
+            target_sizes=torch.tensor([(pil_image.height, pil_image.width)]),
             threshold=0.3,
         )[0]
 
@@ -75,7 +73,7 @@ class PoseEstimationClient:
         person_boxes_xyxy[:, 2] = person_boxes_xyxy[:, 2] - person_boxes_xyxy[:, 0]
         person_boxes_xyxy[:, 3] = person_boxes_xyxy[:, 3] - person_boxes_xyxy[:, 1]
         inputs = self.image_processor(
-            image, boxes=[person_boxes_xyxy], return_tensors="pt"
+            pil_image, boxes=[person_boxes_xyxy], return_tensors="pt"
         ).to(self.device)
 
         # forward pass
@@ -132,11 +130,11 @@ class PoseEstimationClient:
             color=sv.Color.WHITE, color_lookup=sv.ColorLookup.INDEX, thickness=1
         )
 
-        annotated_frame = image.copy()
+        annotated_frame = pil_image.copy()
 
         # annotate boundg boxes
         annotated_frame = bounding_box_annotator.annotate(
-            scene=image.copy(), detections=detections
+            scene=pil_image.copy(), detections=detections
         )
 
         # annotate edges and verticies
