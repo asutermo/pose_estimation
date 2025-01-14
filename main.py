@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 
@@ -13,15 +14,23 @@ logger = logging.getLogger(__name__)
 
 def process_based_on_mime_type(path: str, output_path: str):
     mime_type = file_utils.get_mime_type(path)
+
     if mime_type.startswith("image/"):
         image = file_utils.get_pil_image(path, file_utils.is_url(path))
         res = client.process_image(image)
-        logger.info(f"{path}: {res}")
+
+        output_json = os.path.join(output_path, f"{os.path.basename(path)}.json")
+        js = json.dumps({"path": path, "results": res[1]})
+        logger.info(f"{output_json}")
+        res[0].save(os.path.join(output_path, f"annotated_{os.path.basename(path)}"))
+        with open(output_json, "w") as f:
+            f.write(js)
     elif mime_type.startswith("video/"):
         res = client.process_video(path, 60)
         logger.info(f"{path} {res}")
     else:
         logger.error(f"Unsupported file type: {mime_type}")
+        return
 
 
 if __name__ == "__main__":
