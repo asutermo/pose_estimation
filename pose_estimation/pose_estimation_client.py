@@ -1,5 +1,8 @@
+import json
 import logging
+import os
 import tempfile
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -42,14 +45,20 @@ class PoseEstimationClient:
         )
 
     @torch.inference_mode()
-    def process_image(self, image: Image.Image) -> tuple[Image.Image, list[dict]]:
-        inputs = self.person_image_processor(images=image, return_tensors="pt").to(self.device)
+    def process_image(
+        self, image: Image.Image, output_file: Optional[str] = None
+    ) -> tuple[Image.Image, list[dict]]:
+        inputs = self.person_image_processor(images=image, return_tensors="pt").to(
+            self.device
+        )
         with torch.no_grad():
             outputs = self.person_model(**inputs)
         results = self.person_image_processor.post_process_object_detection(
-            outputs, target_sizes=torch.tensor([(image.height, image.width)]), threshold=0.3
+            outputs,
+            target_sizes=torch.tensor([(image.height, image.width)]),
+            threshold=0.3,
         )
-        result = results[0] 
+        result = results[0]
 
         # Extract the bounding box
         person_boxes_xyxy = result["boxes"][result["labels"] == 0]
@@ -60,7 +69,9 @@ class PoseEstimationClient:
         person_boxes[:, 2] = person_boxes[:, 2] - person_boxes[:, 0]
         person_boxes[:, 3] = person_boxes[:, 3] - person_boxes[:, 1]
 
-        inputs = self.image_processor(image, boxes=[person_boxes], return_tensors="pt").to(self.device)
+        inputs = self.image_processor(
+            image, boxes=[person_boxes], return_tensors="pt"
+        ).to(self.device)
 
         # MOE
         if self.pose_model.config.backbone_config.num_experts > 1:
@@ -73,7 +84,7 @@ class PoseEstimationClient:
             outputs = self.pose_model(**inputs)
 
         pose_results = self.image_processor.post_process_pose_estimation(
-            outputs, boxes=[person_boxes_xyxy]
+            outputs, boxes=[person_boxes]
         )
         image_pose_result = pose_results[0]  # results for first image
 
@@ -133,12 +144,31 @@ class PoseEstimationClient:
         annotated_frame = edge_annotator.annotate(
             scene=annotated_frame, key_points=keypoints
         )
+        annotated_result = vertex_annotator.annotate(
+            scene=annotated_frame, key_points=keypoints
+        )
+
+        if output_file:
+            annotated_result.save(output_file)
+            output_json = os.path.join(
+                os.path.dirname(output_file), f"{os.path.basename(output_file)}.json"
+            )
+            js = json.dumps({"path": output_file, "results": human_readable_results})
+            with open(output_json, "w") as f:
+                f.write(js)
+            logger.info(f"{output_file}: {js}")
+
         return (
-            vertex_annotator.annotate(scene=annotated_frame, key_points=keypoints),
+            annotated_result,
             human_readable_results,
         )
 
-    def process_video(self, video_path: str, max_num_frames: int = 60) -> str:
+    def process_video(
+        self,
+        video_path: str,
+        max_num_frames: int = 60,
+        output_file: Optional[str] = None,
+    ) -> str:
         cap = cv2.VideoCapture(video_path)  # type: ignore
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -146,7 +176,13 @@ class PoseEstimationClient:
         num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_file:
+
+        o_file = (
+            open(output_file, "w")
+            if output_file
+            else tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+        )
+        with o_file as out_file:
             writer = cv2.VideoWriter(out_file.name, fourcc, fps, (width, height))  # type: ignore
             for _ in tqdm.auto.tqdm(range(min(max_num_frames, num_frames))):
                 ok, frame = cap.read()
