@@ -1,4 +1,6 @@
 accelerate>=0.26.0
+python-magic==0.4.27
+python-magic-bin
 supervision==0.25.1
 torch==2.3.0+cu121
 torchaudio==2.3.0+cu121

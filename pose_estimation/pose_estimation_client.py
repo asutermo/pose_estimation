@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 
@@ -14,7 +15,12 @@ from transformers import (  # type: ignore
     VitPoseForPoseEstimation,
 )
 
+from utils.log_utils import config_logs
+
 __all__ = ["PoseEstimationClient"]
+
+config_logs()
+logger = logging.getLogger(__name__)
 
 
 class PoseEstimationClient:
@@ -27,6 +33,7 @@ class PoseEstimationClient:
     ):
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Using device: {self.device}")
         self.person_image_processor = AutoProcessor.from_pretrained(autoprocessor_model)
         self.person_model = RTDetrForObjectDetection.from_pretrained(
             rtdetr_model, device_map=self.device
@@ -37,20 +44,8 @@ class PoseEstimationClient:
         )
 
     @torch.inference_mode()
-    def process_image(self, image: str | Image.Image) -> tuple[Image.Image, list[dict]]:
-        if isinstance(image, str):
-            if os.path.exists(image):
-                pil_image = Image.open(image)
-            else:
-                pil_image = Image.open(httpx.get(image))
-        elif isinstance(image, Image.Image):
-            pil_image = image
-        else:
-            raise ValueError(
-                f"Invalid input type: {type(image)}. Image must be a path/url or PIL Image"
-            )
-
-        inputs = self.person_image_processor(images=pil_image, return_tensors="pt").to(
+    def process_image(self, image: Image.Image) -> tuple[Image.Image, list[dict]]:
+        inputs = self.person_image_processor(images=image, return_tensors="pt").to(
             self.device
         )
 
@@ -61,7 +56,7 @@ class PoseEstimationClient:
         # Post process. This is only single image at the moment
         results = self.person_image_processor.post_process_object_detection(
             outputs,
-            target_sizes=torch.tensor([(pil_image.height, pil_image.width)]),
+            target_sizes=torch.tensor([(image.height, image.width)]),
             threshold=0.3,
         )[0]
 
@@ -73,7 +68,7 @@ class PoseEstimationClient:
         person_boxes_xyxy[:, 2] = person_boxes_xyxy[:, 2] - person_boxes_xyxy[:, 0]
         person_boxes_xyxy[:, 3] = person_boxes_xyxy[:, 3] - person_boxes_xyxy[:, 1]
         inputs = self.image_processor(
-            pil_image, boxes=[person_boxes_xyxy], return_tensors="pt"
+            image, boxes=[person_boxes_xyxy], return_tensors="pt"
         ).to(self.device)
 
         # forward pass
@@ -130,11 +125,11 @@ class PoseEstimationClient:
             color=sv.Color.WHITE, color_lookup=sv.ColorLookup.INDEX, thickness=1
         )
 
-        annotated_frame = pil_image.copy()
+        annotated_frame = image.copy()
 
         # annotate boundg boxes
         annotated_frame = bounding_box_annotator.annotate(
-            scene=pil_image.copy(), detections=detections
+            scene=image.copy(), detections=detections
         )
 
         # annotate edges and verticies
@@ -147,24 +142,24 @@ class PoseEstimationClient:
         )
 
 
-def process_video(self, video_path: str, max_num_frames: int = 60) -> str:
-    cap = cv2.VideoCapture(video_path)  # type: ignore - cv2.VideoCapture supports args. mypy doesn't know that
+    def process_video(self, video_path: str, max_num_frames: int = 60) -> str:
+        cap = cv2.VideoCapture(video_path)  # type: ignore - cv2.VideoCapture supports args. mypy doesn't know that
 
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_file:
-        writer = cv2.VideoWriter(out_file.name, fourcc, fps, (width, height))  # type: ignore - cv2.VideoWriter supports args. mypy doesn't know that
-        for _ in tqdm.auto.tqdm(range(min(max_num_frames, num_frames))):
-            ok, frame = cap.read()
-            if not ok:
-                break
-            rgb_frame = frame[:, :, ::-1]
-            annotated_frame, _ = self.process_image(Image.fromarray(rgb_frame))
-            writer.write(np.asarray(annotated_frame)[:, :, ::-1])
-        writer.release()
-    cap.release()
-    return out_file.name
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_file:
+            writer = cv2.VideoWriter(out_file.name, fourcc, fps, (width, height))  # type: ignore - cv2.VideoWriter supports args. mypy doesn't know that
+            for _ in tqdm.auto.tqdm(range(min(max_num_frames, num_frames))):
+                ok, frame = cap.read()
+                if not ok:
+                    break
+                rgb_frame = frame[:, :, ::-1]
+                annotated_frame, _ = self.process_image(Image.fromarray(rgb_frame))
+                writer.write(np.asarray(annotated_frame)[:, :, ::-1])
+            writer.release()
+        cap.release()
+        return out_file.name
