@@ -8,6 +8,10 @@ ViTPose docs: https://huggingface.co/docs/transformers/model_doc/vitpose.
 
 Large portions of this code just comes from ViTPose-transformers code [here](https://huggingface.co/spaces/hysts/ViTPose-transformers/blob/main/app.py). This was largely to write a batch tool without gradio in the mix.
 
+## Test Images
+
+Data is from [pexels](https://www.pexels.com), a free-use/stock photo site.
+
 ## TODO
 
 - Add tests
