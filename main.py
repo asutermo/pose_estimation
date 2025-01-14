@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import shutil
 
 # from pydantic import BaseModel  # type: ignore
 from pose_estimation.pose_estimation_client import PoseEstimationClient
@@ -28,6 +29,7 @@ def process_based_on_mime_type(path: str, output_path: str):
     elif mime_type.startswith("video/"):
         res = client.process_video(path, 60)
         logger.info(f"{path} {res}")
+        shutil.move(res, output_path)
     else:
         logger.error(f"Unsupported file type: {mime_type}")
         return

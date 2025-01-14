@@ -1,5 +1,6 @@
 import logging
 import tempfile
+from typing import Optional
 
 import cv2
 import numpy as np
