@@ -1,9 +1,7 @@
 import logging
-import os
 import tempfile
 
 import cv2
-import httpx  # type: ignore
 import numpy as np
 import supervision as sv  # type: ignore
 import torch  # type: ignore
@@ -141,10 +139,8 @@ class PoseEstimationClient:
             human_readable_results,
         )
 
-
     def process_video(self, video_path: str, max_num_frames: int = 60) -> str:
-        cap = cv2.VideoCapture(video_path)  # type: ignore - cv2.VideoCapture supports args. mypy doesn't know that
-
+        cap = cv2.VideoCapture(video_path)  # type: ignore
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -152,7 +148,7 @@ class PoseEstimationClient:
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_file:
-            writer = cv2.VideoWriter(out_file.name, fourcc, fps, (width, height))  # type: ignore - cv2.VideoWriter supports args. mypy doesn't know that
+            writer = cv2.VideoWriter(out_file.name, fourcc, fps, (width, height))  # type: ignore
             for _ in tqdm.auto.tqdm(range(min(max_num_frames, num_frames))):
                 ok, frame = cap.read()
                 if not ok:
