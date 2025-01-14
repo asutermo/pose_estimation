@@ -1,6 +1,5 @@
 import logging
 import tempfile
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -44,31 +43,30 @@ class PoseEstimationClient:
 
     @torch.inference_mode()
     def process_image(self, image: Image.Image) -> tuple[Image.Image, list[dict]]:
-        inputs = self.person_image_processor(images=image, return_tensors="pt").to(
-            self.device
-        )
-
-        # forward pass
+        inputs = self.person_image_processor(images=image, return_tensors="pt").to(self.device)
         with torch.no_grad():
             outputs = self.person_model(**inputs)
-
-        # Post process. This is only single image at the moment
         results = self.person_image_processor.post_process_object_detection(
-            outputs,
-            target_sizes=torch.tensor([(image.height, image.width)]),
-            threshold=0.3,
-        )[0]
+            outputs, target_sizes=torch.tensor([(image.height, image.width)]), threshold=0.3
+        )
+        result = results[0] 
 
         # Extract the bounding box
-        person_boxes_xyxy = results["boxes"][results["labels"] == 0]
+        person_boxes_xyxy = result["boxes"][result["labels"] == 0]
         person_boxes_xyxy = person_boxes_xyxy.cpu().numpy()
 
         # Convert boxes from VOC (x1, y1, x2, y2) to COCO (x1, y1, w, h) format
-        person_boxes_xyxy[:, 2] = person_boxes_xyxy[:, 2] - person_boxes_xyxy[:, 0]
-        person_boxes_xyxy[:, 3] = person_boxes_xyxy[:, 3] - person_boxes_xyxy[:, 1]
-        inputs = self.image_processor(
-            image, boxes=[person_boxes_xyxy], return_tensors="pt"
-        ).to(self.device)
+        person_boxes = person_boxes_xyxy.copy()
+        person_boxes[:, 2] = person_boxes[:, 2] - person_boxes[:, 0]
+        person_boxes[:, 3] = person_boxes[:, 3] - person_boxes[:, 1]
+
+        inputs = self.image_processor(image, boxes=[person_boxes], return_tensors="pt").to(self.device)
+
+        # MOE
+        if self.pose_model.config.backbone_config.num_experts > 1:
+            dataset_index = torch.tensor([0] * len(inputs["pixel_values"]))
+            dataset_index = dataset_index.to(inputs["pixel_values"].device)
+            inputs["dataset_index"] = dataset_index
 
         # forward pass
         with torch.no_grad():

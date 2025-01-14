@@ -29,7 +29,9 @@ def process_based_on_mime_type(path: str, output_path: str):
     elif mime_type.startswith("video/"):
         res = client.process_video(path, 60)
         logger.info(f"{path} {res}")
-        shutil.move(res, output_path)
+
+        vid_path = os.path.join(output_path, f"annotated_{os.path.basename(path)}")
+        shutil.move(res, vid_path)
     else:
         logger.error(f"Unsupported file type: {mime_type}")
         return
