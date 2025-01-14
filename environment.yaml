@@ -1,0 +1,11 @@
+name: pose_estimation
+channels: 
+  - conda-forge
+dependencies:
+  - python=3.11.10
+  - git
+  - anaconda
+  - pip
+  - pip:
+    - --extra-index-url https://download.pytorch.org/whl/cu121
+    - -r requirements.txt

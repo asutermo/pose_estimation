@@ -1,0 +1,6 @@
+accelerate>=0.26.0
+supervision==0.25.1
+torch==2.3.0+cu121
+torchaudio==2.3.0+cu121
+torchvision==0.18.0+cu121
+transformers
