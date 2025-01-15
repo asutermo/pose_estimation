@@ -8,6 +8,20 @@ ViTPose docs: https://huggingface.co/docs/transformers/model_doc/vitpose.
 
 Large portions of this code just comes from ViTPose-transformers code [here](https://huggingface.co/spaces/hysts/ViTPose-transformers/blob/main/app.py). This was largely to write a batch tool without gradio in the mix.
 
+## Execution
+
+```sh
+conda env create -f ./environment.yaml
+```
+
+Note:
+
+On Windows at least, python-magic-bin has to be force reinstalled. Investigating.
+
+```sh
+python main.py -p "./tests/data/pexels-stockphotoartist-1034859.jpg"
+```
+
 ## Test Images
 
 Data is from [pexels](https://www.pexels.com), a free-use/stock photo site.
