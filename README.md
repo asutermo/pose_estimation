@@ -13,8 +13,7 @@ Large portions of this code just comes from ViTPose-transformers code [here](htt
 ```sh
 conda env create -f ./environment.yaml
 conda activate pose_estimation
-pip install python-magic-bin --force-reinstall # On Windows, need to force reinstall unfortunately. Investigating
-
+pip install python-magic-bin==0.4.14 # this does not work on first install. So just install on activation and it should work
 python main.py -p "./tests/data/pexels-stockphotoartist-1034859.jpg"
 ```
 
