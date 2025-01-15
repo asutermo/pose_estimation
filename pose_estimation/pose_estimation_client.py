@@ -187,6 +187,7 @@ class PoseEstimationClient:
             for _ in tqdm.auto.tqdm(range(min(max_num_frames, num_frames))):
                 ok, frame = cap.read()
                 if not ok:
+                    logger.warn("Bad frame found")
                     break
                 rgb_frame = frame[:, :, ::-1]
                 annotated_frame, _ = self.process_image(Image.fromarray(rgb_frame))
