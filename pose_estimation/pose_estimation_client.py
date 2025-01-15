@@ -65,7 +65,7 @@ class PoseEstimationClient:
         if len(person_boxes_xyxy) == 0:
             logger.info("No person detected")
             return image, []
-        
+
         person_boxes_xyxy = person_boxes_xyxy.cpu().numpy()
 
         # Convert boxes from VOC (x1, y1, x2, y2) to COCO (x1, y1, w, h) format
@@ -116,7 +116,7 @@ class PoseEstimationClient:
                     }
                 )
             human_readable_results.append(data)
-        
+
         xy = (
             torch.stack([pose_result["keypoints"] for pose_result in image_pose_result])
             .cpu()
